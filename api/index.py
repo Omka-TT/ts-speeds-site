@@ -62,6 +62,9 @@ async def info(req: UrlRequest):
         return await asyncio.to_thread(downloader.probe, url)
     except downloader.DownloadError as e:
         raise HTTPException(422, str(e))
+    except Exception as e:
+        log.exception("info failed")
+        raise HTTPException(500, f"Внутренняя ошибка: {type(e).__name__}: {str(e)[:300]}")
 
 
 @app.post("/api/download")
@@ -74,6 +77,9 @@ async def download(req: DownloadRequest):
             path, filename = await asyncio.to_thread(downloader.download, url, req.mode, req.quality)
     except downloader.DownloadError as e:
         raise HTTPException(422, str(e))
+    except Exception as e:
+        log.exception("download failed")
+        raise HTTPException(500, f"Внутренняя ошибка: {type(e).__name__}: {str(e)[:300]}")
 
     def stream():
         # Отдаём кусками: потоковый ответ на Vercel не упирается в лимит 4,5 МБ
