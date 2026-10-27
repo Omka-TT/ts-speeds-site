@@ -1,10 +1,14 @@
 """Скачивание видео и звука с TikTok / YouTube / Instagram через yt-dlp."""
 import os
 import re
+import platform
 import shutil
+import stat
 import subprocess
 import tempfile
+import urllib.request
 import uuid
+import zipfile
 from pathlib import Path
 
 import deno
@@ -28,6 +32,12 @@ MAX_MINUTES = int(os.getenv("MAX_MINUTES", "10"))
 # На Vercel писать можно только в /tmp
 WORK_DIR = Path(tempfile.gettempdir()) / "downloads"
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
+
+# YouTube требует JS-движок (deno) для расшифровки ссылок на видео. Пакет deno из pip
+# кладёт программу в папку, которую Vercel не включает в функцию, поэтому на сервере
+# скачиваем её сами во временную папку при первой ссылке на YouTube.
+DENO_VERSION = os.getenv("DENO_VERSION", "2.9.8")
+DENO_TMP = Path(tempfile.gettempdir()) / "deno" / "deno"
 
 
 class DownloadError(Exception):
@@ -56,7 +66,36 @@ def _cookies_file() -> str | None:
     return str(path)
 
 
-def _base_opts() -> dict:
+def _deno_path() -> str | None:
+    try:
+        bundled = deno.find_deno_bin()
+        if Path(bundled).exists():
+            return bundled
+    except Exception:
+        pass
+    if found := shutil.which("deno"):
+        return found
+    if DENO_TMP.exists():
+        return str(DENO_TMP)
+    if platform.system() != "Linux" or platform.machine() not in ("x86_64", "AMD64"):
+        return None
+    url = (f"https://github.com/denoland/deno/releases/download/v{DENO_VERSION}/"
+           "deno-x86_64-unknown-linux-gnu.zip")
+    DENO_TMP.parent.mkdir(parents=True, exist_ok=True)
+    archive = DENO_TMP.parent / "deno.zip"
+    try:
+        urllib.request.urlretrieve(url, archive)
+        with zipfile.ZipFile(archive) as z:
+            z.extract("deno", DENO_TMP.parent)
+    except OSError:
+        return None
+    finally:
+        archive.unlink(missing_ok=True)
+    DENO_TMP.chmod(DENO_TMP.stat().st_mode | stat.S_IEXEC)
+    return str(DENO_TMP)
+
+
+def _base_opts(url: str = "") -> dict:
     opts = {
         "noplaylist": True,
         "quiet": True,
@@ -65,9 +104,9 @@ def _base_opts() -> dict:
         "retries": 3,
         "cachedir": False,
         "ffmpeg_location": FFMPEG,
-        # YouTube требует JS-движок для расшифровки ссылок на видео
-        "js_runtimes": {"deno": {"path": deno.find_deno_bin()}},
     }
+    if "youtu" in url and (deno_bin := _deno_path()):
+        opts["js_runtimes"] = {"deno": {"path": deno_bin}}
     cookies = _cookies_file()
     if cookies:
         opts["cookiefile"] = cookies
@@ -84,7 +123,7 @@ def _extract(url: str, opts: dict, download: bool) -> dict:
 
 def probe(url: str) -> dict:
     """Информация о ролике и доступные варианты качества (без скачивания)."""
-    info = _extract(url, _base_opts(), download=False)
+    info = _extract(url, _base_opts(url), download=False)
     sides = [
         min(f["width"], f["height"])
         for f in info.get("formats") or []
@@ -119,7 +158,7 @@ def download(url: str, mode: str = "video", quality: int | None = None,
     job_dir = WORK_DIR / uuid.uuid4().hex
     job_dir.mkdir(parents=True, exist_ok=True)
 
-    opts = _base_opts() | {
+    opts = _base_opts(url) | {
         "outtmpl": str(job_dir / "file.%(ext)s"),
         "max_filesize": MAX_BYTES,
         "match_filter": yt_dlp.utils.match_filter_func(f"duration <=? {MAX_MINUTES * 60}"),
