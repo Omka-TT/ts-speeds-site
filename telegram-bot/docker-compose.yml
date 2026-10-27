@@ -1,0 +1,8 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    restart: always
+    # Раскомментируй, если положишь cookies.txt рядом (для Instagram/YouTube):
+    # volumes:
+    #   - ./cookies.txt:/app/cookies.txt:ro

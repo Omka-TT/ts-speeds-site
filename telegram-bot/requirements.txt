@@ -1,0 +1,5 @@
+aiogram>=3.13,<4
+anthropic>=0.75
+pydantic>=2.7
+python-dotenv>=1.0
+yt-dlp[default]>=2026.10.1

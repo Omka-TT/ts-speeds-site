@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TS Speeds</title>
+  <meta name="description" content="Скачать видео с TikTok без водяного знака, YouTube и Instagram. Оценка эдитов от 1 до 10.">
+  <meta name="theme-color" content="#0d0d12">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="logo">TS<span>speeds</span></div>
+      <p class="sub">Скачивай без водяного знака и узнай, сколько стоит твой эдит</p>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="dl" role="tab" aria-selected="true">📥 Скачать</button>
+      <button class="tab" data-tab="rate" role="tab" aria-selected="false">⭐ Оценить эдит</button>
+    </nav>
+
+    <!-- Скачивание -->
+    <section id="dl" class="panel active">
+      <form id="dl-form" class="card">
+        <label for="dl-url">Ссылка на видео</label>
+        <div class="row">
+          <input id="dl-url" type="url" inputmode="url" placeholder="TikTok, YouTube или Instagram" required autocomplete="off">
+          <button type="button" id="dl-paste" class="ghost" title="Вставить">📋</button>
+        </div>
+        <button type="submit" class="primary" id="dl-btn">Скачать</button>
+        <p class="hint">TikTok — без водяного знака. Качество — лучшее до 1080p.</p>
+      </form>
+
+      <div id="dl-status" class="status" hidden></div>
+
+      <div id="dl-result" class="card result" hidden>
+        <video id="dl-video" controls playsinline></video>
+        <div class="actions">
+          <a id="dl-save" class="primary" download="video.mp4">💾 Сохранить</a>
+          <button id="dl-share" class="secondary" hidden>📤 В галерею / поделиться</button>
+          <button id="dl-to-rate" class="secondary">⭐ Оценить этот эдит</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Оценка -->
+    <section id="rate" class="panel">
+      <div class="card">
+        <label class="drop" id="drop">
+          <input id="rate-file" type="file" accept="video/*" hidden>
+          <span class="drop-ico">🎬</span>
+          <span class="drop-title">Выбери видео эдита</span>
+          <span class="hint">или перетащи файл сюда</span>
+        </label>
+        <div class="or"><span>или по ссылке</span></div>
+        <form id="rate-url-form" class="row">
+          <input id="rate-url" type="url" inputmode="url" placeholder="Ссылка на эдит" autocomplete="off">
+          <button type="submit" class="secondary">Оценить</button>
+        </form>
+        <div id="code-box" class="code" hidden>
+          <label for="access-code">Код доступа</label>
+          <input id="access-code" type="password" placeholder="Спроси у владельца сайта" autocomplete="off">
+        </div>
+        <p class="hint">ИИ смотрит на картинку: цвет, переходы, эффекты, монтаж и качество. Звук не учитывается.</p>
+        <p id="rate-off" class="warn" hidden>Оценка эдитов пока не подключена на этом сайте.</p>
+      </div>
+
+      <div id="rate-status" class="status" hidden></div>
+
+      <div id="rate-result" class="card result" hidden>
+        <div class="score">
+          <div class="score-num"><span id="score">0</span><small>/10</small></div>
+          <div class="score-bar"><div id="score-fill"></div></div>
+          <p id="verdict" class="verdict"></p>
+        </div>
+        <h3>✅ Сильные стороны</h3>
+        <ul id="strengths"></ul>
+        <h3>⚠️ Что хромает</h3>
+        <ul id="weaknesses"></ul>
+        <h3>💡 Советы</h3>
+        <ul id="tips"></ul>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <button id="install" class="ghost" hidden>📲 Установить как приложение</button>
+      <p>Скачивай только то, на что у тебя есть права. Уважай авторов.</p>
+    </footer>
+  </main>
+  <canvas id="canvas" hidden></canvas>
+  <script src="/app.js"></script>
+</body>
+</html>

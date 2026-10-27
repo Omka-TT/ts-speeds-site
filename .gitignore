@@ -1,0 +1,7 @@
+.env
+.env.local
+cookies.txt
+downloads/
+__pycache__/
+.venv/
+.vercel/

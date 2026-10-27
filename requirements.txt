@@ -1,0 +1,6 @@
+fastapi>=0.117
+anthropic>=2.3
+pydantic>=2.7
+yt-dlp[default]>=2026.10.26
+imageio-ffmpeg>=0.6
+deno>=2.5
