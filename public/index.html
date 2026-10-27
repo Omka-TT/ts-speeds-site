@@ -3,94 +3,133 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>TS Speeds</title>
-  <meta name="description" content="Скачать видео с TikTok без водяного знака, YouTube и Instagram. Оценка эдитов от 1 до 10.">
-  <meta name="theme-color" content="#0d0d12">
+  <title>ts-speed</title>
+  <meta name="description" content="Скачать видео с TikTok без водяного знака, YouTube, Instagram и музыку со Spotify. Оценка эдитов от 1 до 10.">
+  <meta name="theme-color" content="#0a0a0a">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <main class="wrap">
     <header class="top">
-      <div class="logo">TS<span>speeds</span></div>
-      <p class="sub">Скачивай без водяного знака и узнай, сколько стоит твой эдит</p>
+      <a class="logo" href="/">ts<span>-</span>speed</a>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="dl" role="tab" aria-selected="true">скачать</button>
+        <button class="tab" data-tab="rate" role="tab" aria-selected="false">оценить</button>
+      </nav>
     </header>
-
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="dl" role="tab" aria-selected="true">📥 Скачать</button>
-      <button class="tab" data-tab="rate" role="tab" aria-selected="false">⭐ Оценить эдит</button>
-    </nav>
 
     <!-- Скачивание -->
     <section id="dl" class="panel active">
-      <form id="dl-form" class="card">
-        <label for="dl-url">Ссылка на видео</label>
-        <div class="row">
-          <input id="dl-url" type="url" inputmode="url" placeholder="TikTok, YouTube или Instagram" required autocomplete="off">
-          <button type="button" id="dl-paste" class="ghost" title="Вставить">📋</button>
-        </div>
-        <button type="submit" class="primary" id="dl-btn">Скачать</button>
-        <p class="hint">TikTok — без водяного знака. Качество — лучшее до 1080p.</p>
+      <h1 class="hero">Видео и музыка<br><em>без лишнего.</em></h1>
+      <p class="lead">TikTok без водяного знака, YouTube, Instagram и треки Spotify — до 4K и в MP3.</p>
+
+      <form id="dl-form" class="field">
+        <input id="dl-url" type="url" inputmode="url" placeholder="Вставь ссылку" required autocomplete="off" aria-label="Ссылка на видео или трек">
+        <button type="button" id="dl-paste" class="paste">вставить</button>
+        <button type="submit" id="dl-go" class="go" aria-label="Найти">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </form>
+      <ul class="platforms">
+        <li>tiktok</li><li>youtube</li><li>instagram</li><li>spotify</li>
+      </ul>
 
       <div id="dl-status" class="status" hidden></div>
 
-      <div id="dl-result" class="card result" hidden>
-        <video id="dl-video" controls playsinline></video>
+      <!-- Что нашли по ссылке и настройки скачивания -->
+      <div id="dl-card" class="card" hidden>
+        <div class="media">
+          <img id="info-thumb" alt="">
+          <div class="media-text">
+            <span id="info-platform" class="tag"></span>
+            <h2 id="info-title"></h2>
+            <p id="info-author"></p>
+          </div>
+        </div>
+
+        <div id="mode-box">
+          <p class="label">Что скачать</p>
+          <div class="seg" id="modes">
+            <button type="button" data-mode="video" class="on">видео</button>
+            <button type="button" data-mode="mute">без звука</button>
+            <button type="button" data-mode="audio">mp3</button>
+          </div>
+        </div>
+
+        <div id="quality-box">
+          <p class="label">Качество</p>
+          <div class="chips" id="qualities"></div>
+        </div>
+
+        <p id="spotify-note" class="note" hidden>Spotify не отдаёт музыку напрямую, поэтому звук берём из этого же трека на YouTube и прописываем название, исполнителя и обложку из Spotify.</p>
+        <p id="long-note" class="note warn" hidden></p>
+
+        <button id="dl-btn" class="primary" type="button">скачать</button>
+      </div>
+
+      <!-- Готовый файл -->
+      <div id="dl-result" class="card" hidden>
+        <video id="dl-video" controls playsinline hidden></video>
+        <audio id="dl-audio" controls hidden></audio>
         <div class="actions">
-          <a id="dl-save" class="primary" download="video.mp4">💾 Сохранить</a>
-          <button id="dl-share" class="secondary" hidden>📤 В галерею / поделиться</button>
-          <button id="dl-to-rate" class="secondary">⭐ Оценить этот эдит</button>
+          <a id="dl-save" class="primary" download>сохранить</a>
+          <button id="dl-share" class="secondary" hidden>в галерею / поделиться</button>
+          <button id="dl-to-rate" class="secondary" hidden>оценить этот эдит</button>
         </div>
       </div>
     </section>
 
     <!-- Оценка -->
     <section id="rate" class="panel">
-      <div class="card">
-        <label class="drop" id="drop">
-          <input id="rate-file" type="file" accept="video/*" hidden>
-          <span class="drop-ico">🎬</span>
-          <span class="drop-title">Выбери видео эдита</span>
-          <span class="hint">или перетащи файл сюда</span>
-        </label>
-        <div class="or"><span>или по ссылке</span></div>
-        <form id="rate-url-form" class="row">
-          <input id="rate-url" type="url" inputmode="url" placeholder="Ссылка на эдит" autocomplete="off">
-          <button type="submit" class="secondary">Оценить</button>
-        </form>
-        <div id="code-box" class="code" hidden>
-          <label for="access-code">Код доступа</label>
-          <input id="access-code" type="password" placeholder="Спроси у владельца сайта" autocomplete="off">
-        </div>
-        <p class="hint">ИИ смотрит на картинку: цвет, переходы, эффекты, монтаж и качество. Звук не учитывается.</p>
-        <p id="rate-off" class="warn" hidden>Оценка эдитов пока не подключена на этом сайте.</p>
+      <h1 class="hero">Сколько стоит<br><em>твой эдит?</em></h1>
+      <p class="lead">ИИ смотрит на цвет, переходы, эффекты и монтаж и ставит оценку от 1 до 10 с советами. Звук не учитывается.</p>
+
+      <label class="drop" id="drop">
+        <input id="rate-file" type="file" accept="video/*" hidden>
+        <span class="drop-plus">+</span>
+        <span class="drop-title">выбрать видео</span>
+        <span class="drop-hint">или перетащи файл сюда</span>
+      </label>
+
+      <form id="rate-url-form" class="field small">
+        <input id="rate-url" type="url" inputmode="url" placeholder="или ссылка на эдит" autocomplete="off" aria-label="Ссылка на эдит">
+        <button type="submit" class="go" aria-label="Оценить">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+
+      <div id="code-box" class="code" hidden>
+        <input id="access-code" type="password" placeholder="код доступа" autocomplete="off" aria-label="Код доступа">
       </div>
+      <p id="rate-off" class="note warn" hidden>Оценка эдитов пока не подключена на этом сайте.</p>
 
       <div id="rate-status" class="status" hidden></div>
 
-      <div id="rate-result" class="card result" hidden>
+      <div id="rate-result" class="card" hidden>
         <div class="score">
           <div class="score-num"><span id="score">0</span><small>/10</small></div>
           <div class="score-bar"><div id="score-fill"></div></div>
           <p id="verdict" class="verdict"></p>
         </div>
-        <h3>✅ Сильные стороны</h3>
-        <ul id="strengths"></ul>
-        <h3>⚠️ Что хромает</h3>
-        <ul id="weaknesses"></ul>
-        <h3>💡 Советы</h3>
-        <ul id="tips"></ul>
+        <div class="lists">
+          <div><h3>сильные стороны</h3><ul id="strengths"></ul></div>
+          <div><h3>что хромает</h3><ul id="weaknesses"></ul></div>
+          <div><h3>советы</h3><ul id="tips"></ul></div>
+        </div>
       </div>
     </section>
 
     <footer class="foot">
-      <button id="install" class="ghost" hidden>📲 Установить как приложение</button>
-      <p>Скачивай только то, на что у тебя есть права. Уважай авторов.</p>
+      <button id="install" class="link" hidden>установить как приложение</button>
+      <p>Скачивай только то, на что у тебя есть права.</p>
     </footer>
   </main>
   <canvas id="canvas" hidden></canvas>

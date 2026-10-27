@@ -1,6 +1,6 @@
 // Минимальный service worker: нужен, чтобы сайт можно было установить как приложение.
 // Кэшируем только оболочку сайта, запросы к /api всегда идут в сеть.
-const CACHE = "ts-speeds-v1";
+const CACHE = "ts-speed-v2";
 const SHELL = ["/", "/style.css", "/app.js", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (e) => {

@@ -4,7 +4,8 @@ const $ = (id) => document.getElementById(id);
 const FRAMES = 12;        // сколько кадров отдаём ИИ
 const FRAME_WIDTH = 512;  // ширина кадра, px
 
-let lastVideo = null;     // последнее скачанное видео (Blob) — чтобы сразу оценить его
+const state = { url: "", info: null, mode: "video", quality: null };
+let lastFile = null;      // последний скачанный файл — чтобы сразу оценить его
 
 // ---------- Вкладки ----------
 function showTab(name) {
@@ -43,19 +44,24 @@ async function errorText(res) {
     const data = await res.json();
     if (typeof data.detail === "string") return data.detail;
   } catch {}
-  if (res.status === 504) return "Сервер не успел скачать видео. Попробуй ролик покороче.";
+  if (res.status === 504) return "Сервер не успел. Попробуй качество пониже или ролик покороче.";
   return `Ошибка сервера (${res.status})`;
 }
 
-// ---------- Скачивание ----------
-async function fetchVideo(url, statusEl) {
-  setStatus(statusEl, "Скачиваю видео… это может занять до минуты", { busy: true });
-  const res = await fetch("/api/download", {
+async function postJSON(path, body, headers = {}) {
+  const res = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await errorText(res));
+  return res;
+}
+
+// ---------- Скачивание файла с прогрессом ----------
+async function fetchFile(body, statusEl) {
+  setStatus(statusEl, "Готовлю файл… обычно до минуты", { busy: true });
+  const res = await postJSON("/api/download", body);
 
   const total = Number(res.headers.get("Content-Length")) || 0;
   const reader = res.body.getReader();
@@ -66,49 +72,138 @@ async function fetchVideo(url, statusEl) {
     if (done) break;
     chunks.push(value);
     got += value.length;
-    const mb = (got / 1048576).toFixed(1);
-    setStatus(statusEl, `Получаю файл… ${mb} МБ`, { busy: true, progress: total ? got / total : null });
+    setStatus(statusEl, `Загружаю… ${(got / 1048576).toFixed(1)} МБ`, { busy: true, progress: total ? got / total : null });
   }
-  let name = "video.mp4";
-  const cd = res.headers.get("Content-Disposition") || "";
-  const m = cd.match(/filename\*=UTF-8''([^;]+)/);
+  const type = res.headers.get("Content-Type") || "video/mp4";
+  let name = type.includes("audio") ? "track.mp3" : "video.mp4";
+  const m = (res.headers.get("Content-Disposition") || "").match(/filename\*=UTF-8''([^;]+)/);
   if (m) name = decodeURIComponent(m[1]);
-  return new File(chunks, name, { type: "video/mp4" });
+  return new File(chunks, name, { type });
 }
 
+// ---------- Шаг 1: ссылка → что за видео ----------
 $("dl-paste").addEventListener("click", async () => {
-  try { $("dl-url").value = (await navigator.clipboard.readText()).trim(); } catch {}
+  try {
+    $("dl-url").value = (await navigator.clipboard.readText()).trim();
+    $("dl-form").requestSubmit();
+  } catch {}
 });
 
 $("dl-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const url = $("dl-url").value.trim();
+  if (!url) return;
+  $("dl-go").disabled = true;
+  hide($("dl-card"));
+  hide($("dl-result"));
+  setStatus($("dl-status"), "Ищу…", { busy: true });
+  try {
+    const info = await (await postJSON("/api/info", { url })).json();
+    state.url = url;
+    state.info = info;
+    showInfo(info);
+    hide($("dl-status"));
+  } catch (err) {
+    setStatus($("dl-status"), err.message, { error: true });
+  } finally {
+    $("dl-go").disabled = false;
+  }
+});
+
+function showInfo(info) {
+  const spotify = info.kind === "spotify";
+  $("info-thumb").src = info.thumbnail || "/icon-192.png";
+  $("info-thumb").style.aspectRatio = "1";
+  $("info-platform").textContent = info.platform || "видео";
+  $("info-title").textContent = info.title;
+  const parts = [info.author, info.duration ? fmtTime(info.duration) : ""].filter(Boolean);
+  $("info-author").textContent = parts.join(" · ");
+
+  $("mode-box").hidden = spotify;
+  $("spotify-note").hidden = !spotify;
+  state.mode = spotify ? "audio" : "video";
+
+  // Качество: по умолчанию 1080p (быстро и красиво), иначе лучшее доступное
+  const qs = info.qualities || [];
+  state.quality = qs.find((q) => q.value === 1080)?.value ?? qs[0]?.value ?? null;
+  $("qualities").replaceChildren(...qs.map((q) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = q.label;
+    b.dataset.value = q.value;
+    b.addEventListener("click", () => { state.quality = q.value; renderOptions(); });
+    return b;
+  }));
+
+  $("long-note").hidden = !info.too_long;
+  $("long-note").textContent = "Видео слишком длинное: бесплатный сервер успевает скачать ролики до 10 минут.";
+  $("dl-btn").disabled = info.too_long;
+
+  renderOptions();
+  $("dl-card").hidden = false;
+}
+
+function renderOptions() {
+  document.querySelectorAll("#modes button").forEach((b) => b.classList.toggle("on", b.dataset.mode === state.mode));
+  document.querySelectorAll("#qualities .chip").forEach((c) => c.classList.toggle("on", Number(c.dataset.value) === state.quality));
+  const hasQualities = (state.info?.qualities || []).length > 0;
+  $("quality-box").hidden = state.mode === "audio" || !hasQualities;
+
+  const q = (state.info?.qualities || []).find((x) => x.value === state.quality);
+  $("dl-btn").textContent = state.mode === "audio"
+    ? "скачать mp3"
+    : `скачать ${q ? q.label + " · " : ""}mp4${state.mode === "mute" ? " без звука" : ""}`;
+}
+
+document.querySelectorAll("#modes button").forEach((b) =>
+  b.addEventListener("click", () => { state.mode = b.dataset.mode; renderOptions(); }));
+
+function fmtTime(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? `${h}:${String(m).padStart(2, "0")}` : m) + ":" + String(s).padStart(2, "0");
+}
+
+// ---------- Шаг 2: скачать с выбранными настройками ----------
+$("dl-btn").addEventListener("click", async () => {
   const btn = $("dl-btn");
   btn.disabled = true;
   hide($("dl-result"));
   try {
-    const file = await fetchVideo($("dl-url").value.trim(), $("dl-status"));
-    lastVideo = file;
-    const href = URL.createObjectURL(file);
-    $("dl-video").src = href;
-    $("dl-save").href = href;
-    $("dl-save").download = file.name;
-    $("dl-share").hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
-    $("dl-result").hidden = false;
+    const file = await fetchFile({ url: state.url, mode: state.mode, quality: state.quality }, $("dl-status"));
+    lastFile = file;
+    showResult(file);
     hide($("dl-status"));
   } catch (err) {
-    setStatus($("dl-status"), "❌ " + err.message, { error: true });
+    setStatus($("dl-status"), err.message, { error: true });
   } finally {
     btn.disabled = false;
   }
 });
 
+function showResult(file) {
+  const href = URL.createObjectURL(file);
+  const isAudio = file.type.includes("audio");
+  $("dl-video").hidden = isAudio;
+  $("dl-audio").hidden = !isAudio;
+  (isAudio ? $("dl-audio") : $("dl-video")).src = href;
+  $("dl-save").href = href;
+  $("dl-save").download = file.name;
+  $("dl-save").textContent = `сохранить ${isAudio ? "mp3" : "видео"}`;
+  $("dl-share").hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+  $("dl-to-rate").hidden = isAudio;
+  $("dl-result").hidden = false;
+  $("dl-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 $("dl-share").addEventListener("click", async () => {
-  try { await navigator.share({ files: [lastVideo] }); } catch {}
+  try { await navigator.share({ files: [lastFile] }); } catch {}
 });
 
 $("dl-to-rate").addEventListener("click", () => {
   showTab("rate");
-  rateFile(lastVideo);
+  rateFile(lastFile);
 });
 
 // ---------- Кадры из видео (прямо в браузере) ----------
@@ -171,16 +266,13 @@ async function rateFile(file) {
       setStatus(status, "Смотрю видео…", { busy: true, progress: p }));
 
     setStatus(status, "ИИ оценивает эдит… обычно 10–30 секунд", { busy: true });
-    const headers = { "Content-Type": "application/json" };
     const code = $("access-code").value.trim();
-    if (code) headers["X-Access-Code"] = code;
-    const res = await fetch("/api/rate", { method: "POST", headers, body: JSON.stringify(data) });
-    if (!res.ok) throw new Error(await errorText(res));
+    const res = await postJSON("/api/rate", data, code ? { "X-Access-Code": code } : {});
     showRating(await res.json());
     try { if (code) localStorage.setItem("accessCode", code); } catch {}
     hide(status);
   } catch (err) {
-    setStatus(status, "❌ " + err.message, { error: true });
+    setStatus(status, err.message, { error: true });
   } finally {
     busy = false;
   }
@@ -214,8 +306,7 @@ drop.addEventListener("dragleave", () => drop.classList.remove("over"));
 drop.addEventListener("drop", (e) => {
   e.preventDefault();
   drop.classList.remove("over");
-  const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("video/"));
-  rateFile(file);
+  rateFile([...e.dataTransfer.files].find((f) => f.type.startsWith("video/")));
 });
 
 $("rate-url-form").addEventListener("submit", async (e) => {
@@ -223,9 +314,10 @@ $("rate-url-form").addEventListener("submit", async (e) => {
   const url = $("rate-url").value.trim();
   if (!url || busy) return;
   try {
-    rateFile(await fetchVideo(url, $("rate-status")));
+    // Для оценки хватает 720p — так быстрее
+    rateFile(await fetchFile({ url, mode: "video", quality: 720 }, $("rate-status")));
   } catch (err) {
-    setStatus($("rate-status"), "❌ " + err.message, { error: true });
+    setStatus($("rate-status"), err.message, { error: true });
   }
 });
 
@@ -252,9 +344,12 @@ $("install").addEventListener("click", async () => {
   $("install").hidden = true;
 });
 
-// Ссылка, которой поделились в приложение (Android: «Поделиться» → TS Speeds)
-const shared = new URLSearchParams(location.search).get("text") || new URLSearchParams(location.search).get("url");
-if (shared) {
-  const m = shared.match(/https?:\/\/\S+/);
-  if (m) $("dl-url").value = m[0];
+// Ссылка, которой поделились в приложение (Android: «Поделиться» → ts-speed)
+{
+  const params = new URLSearchParams(location.search);
+  const m = (params.get("text") || params.get("url") || "").match(/https?:\/\/\S+/);
+  if (m) {
+    $("dl-url").value = m[0];
+    $("dl-form").requestSubmit();
+  }
 }
